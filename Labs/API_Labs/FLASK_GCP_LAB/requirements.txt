@@ -1,5 +1,0 @@
-pandas
-scikit-learn
-pandas
-streamlit
-flask
