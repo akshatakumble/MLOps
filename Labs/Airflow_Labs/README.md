@@ -121,8 +121,8 @@ cd Labs/Airflow_Labs
 4. Set the Airflow user (creates `.env`):
    ```bash
   
-   On Windows, create `.env` with:
-   ```
+   # On Windows, create `.env` with:
+
    AIRFLOW_UID=50000
    ```
 5. Update `docker-compose.yaml`:
