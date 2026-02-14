@@ -1,24 +1,8 @@
 # Airflow Lab 1
-This lab runs a **machine learning pipeline** on Apache Airflow: load data → preprocess → fit a **Gaussian Mixture Model (GMM)** → select the best number of components with **BIC** → save the model and predict on test data. All steps are implemented as Airflow tasks with dependencies and XCom for passing data between tasks.
+This lab runs a **machine learning pipeline** on Apache Airflow: load data → preprocess → fit a **Gaussian Mixture Model (GMM)** → select the best number of components with **BIC (Bayesian Information Criterion)** → save the model and predict on test data. All steps are implemented as Airflow tasks with dependencies and XCom for passing data between tasks.
 
 ---
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Topics Covered](#topics-covered)
-- [Prerequisites](#prerequisites)
-- [Directory Structure](#directory-structure)
-- [Quick Start](#quick-start)
-- [Detailed Setup](#detailed-setup)
-- [Data](#data)
-- [DAG Overview](#dag-overview)
-- [Running the Lab](#running-the-lab)
-- [Configuration Reference](#configuration-reference)
-- [Troubleshooting](#troubleshooting)
-- [References](#references)
-
----
 
 ## Overview
 
@@ -62,7 +46,7 @@ Data is passed between tasks via **XCom** (base64-encoded serialized payloads an
 Labs/Airflow_Labs/
 ├── docker-compose.yaml    # Airflow stack (scheduler, webserver, workers, postgres, redis)
 ├── .env                   # AIRFLOW_UID and optional overrides
-├── LAB1_README.md         # This file
+├── README.md         # This file
 ├── dags/
 │   ├── airflow.py        # Lab 1 DAG definition
 │   ├── src/
@@ -91,7 +75,7 @@ From the **repository root** (e.g. `MLOps/`):
 ```bash
 cd Labs/Airflow_Labs
 
-# 1. Create .env with host user ID (Linux/macOS: id -u; Windows: use 50000 or leave default)
+# 1. Create .env with host user ID
 echo "AIRFLOW_UID=50000" > .env
 
 # 2. Ensure data exists (or generate sample data)
@@ -115,69 +99,71 @@ Wait until the webserver is healthy (e.g. logs show `GET /health 200`), then tri
 ### 1. Clone and enter the lab directory
 
 ```bash
-cd /path/to/MLOps/Labs/Airflow_Labs
+cd Labs/Airflow_Labs
 ```
 
-### 2. Set Airflow UID (Linux/macOS)
+### 2. Running Airflow in Docker
 
-Airflow containers run as a specific user. Set the host user ID so log and volume permissions match:
+1. Ensure **Docker Desktop** is running.
+2. Fetch `docker-compose.yaml` if not already present:
+   ```bash
+   # Windows
+   curl -o docker-compose.yaml https://airflow.apache.org/docs/apache-airflow/2.9.2/docker-compose.yaml
+   ```
+   (Or use the `docker-compose.yaml` already in this lab.)
+3. Create required directories:
+   ```bash
+  
+   # Windows (cmd)
+   mkdir dags logs plugins config
 
-```bash
-echo "AIRFLOW_UID=$(id -u)" > .env
-```
+   ```
+4. Set the Airflow user (creates `.env`):
+   ```bash
+  
+   On Windows, create `.env` with:
+   ```
+   AIRFLOW_UID=50000
+   ```
+5. Update `docker-compose.yaml`:
+   ```yaml
+   # Do not load examples
+   AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
 
-On Windows use `AIRFLOW_UID=50000` or omit it to use the default.
+   # Additional Python packages
+   _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:- pandas scikit-learn kneed}
 
-### 3. Optional: Override project directory
+   # Output dir
+   - ${AIRFLOW_PROJ_DIR:-.}/working_data:/opt/airflow/working_data
 
-When running `docker compose` from a different directory, set the base path for volumes:
+   # Default admin credentials (optional)
+   _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow2}
+   _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow2}
+   ```
+6. Initialize the database (first time only; takes a few minutes):
+   ```bash
+   docker compose up airflow-init
+   ```
+7. Start Airflow:
+   ```bash
+   docker compose up
+   ```
+8. Wait until the terminal shows:
+    ```
+    airflow-webserver-1  | 127.0.0.1 - - [DD/Mon/YYYY:HH:MM:SS +0000] "GET /health HTTP/1.1" 200 ...
+    ```
 
-```bash
-# In .env
-AIRFLOW_PROJ_DIR=C:/path/to/MLOps/Labs/Airflow_Labs
-```
+9. Visit **http://localhost:8080** and log in with the credentials from step 7.
+10. The DAG **Airflow_Lab1** appears in the UI (tags: lab1, ml, gmm; schedule: None). Trigger it manually or enable the toggle.
 
-The default is `.` (current directory).
+![DAGs list in Airflow UI](assets/DAG.jpg)
 
-### 4. Prepare data
-
-- **Option A — Use existing CSVs**  
-  Place `file.csv` (training) and `test.csv` (test) in `dags/data/`. Each must contain the feature columns (default: `BALANCE`, `PURCHASES`, `CREDIT_LIMIT`). See [Data](#data).
-
-- **Option B — Generate sample data**  
-  From `Labs/Airflow_Labs`:
-  ```bash
-  python dags/scripts/generate_sample_data.py
-  ```
-  This creates `dags/data/file.csv` and `dags/data/test.csv` with the required columns.
-
-### 5. Initialize Airflow (first time only)
-
-```bash
-docker compose up airflow-init
-```
-
-When it finishes, the admin user is created. Exit with Ctrl+C if the process doesn’t exit on its own.
-
-### 6. Start the stack
-
-```bash
-docker compose up -d
-```
-
-Services: postgres, redis, airflow-webserver, airflow-scheduler, airflow-worker(s). Wait until the webserver responds:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health
-# Expect 200
-```
-
-### 7. Log in to the UI
-
-- URL: **http://localhost:8080**
-- Default credentials: **airflow** / **airflow** (or as set in docker-compose / `.env`).
-
----
+*DAGs page showing Airflow_Lab1 active with tags and run history.* Progress can be monitored in the Grid or Graph view; logs are in the UI and in the `logs/` directory.
+11. After the DAG completes: click the DAG → **Graph** tab → click `load_model_task` → **Logs** tab to see the result (optimal number of components by BIC).
+12. Stop Airflow:
+    ```bash
+    docker compose down
+    ```
 
 ## Data
 
@@ -186,7 +172,6 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health
 - **file.csv** (training): Must include the feature columns used for clustering. Default: `BALANCE`, `PURCHASES`, `CREDIT_LIMIT`. Extra columns are allowed and ignored.
 - **test.csv**: Same feature columns; one or more rows. The pipeline predicts on the first row and returns its cluster id.
 
-Missing or misnamed columns raise a clear error at runtime.
 
 ### Configuring paths and columns
 
@@ -232,6 +217,9 @@ Task flow:
 ```
 load_data_task → data_preprocessing_task → build_save_model_task → load_model_task
 ```
+![DAG Graph view](assets/Pipeline.jpg)
+
+*Graph view of the four tasks (PythonOperator) and their dependencies; green indicates success.*
 
 - **load_data_task** pushes the serialized training data (base64) to XCom.
 - **data_preprocessing_task** takes that via `load_data_task.output`, preprocesses, and pushes the scaled array (base64) to XCom.
@@ -248,7 +236,11 @@ Each task has a short **doc_md** description visible in the Airflow UI when open
 2. Find the DAG **Airflow_Lab1** (or filter by tag **lab1** or **gmm**).
 3. Unpause the DAG (toggle on the left).
 4. Click **Trigger DAG** (play button).
-5. Open the run (e.g. from **Grid** or **Graph** view) and click a task to see **Logs** and **Task Instance Details**.
+5. Open the run (e.g. from **Grid** or **Graph** view) and click a task to see **Logs** and **Task Instance Details**. For the pipeline result (optimal number of components and returned value), open **load_model_task** → **Logs** tab.
+
+![load_model_task logs](assets/Logs.jpg)
+
+*Logs tab for load_model_task: optimal number of components (by BIC) and returned value.*
 
 ### What to expect
 
@@ -272,9 +264,9 @@ The final task’s return value is stored in XCom and visible in the task’s **
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DAG_ID` | `"Airflow_Lab1"` | DAG identifier in the UI. Set to `"your_python_dag"` to match some tutorials. |
+| `DAG_ID` | `"Airflow_Lab1"` | DAG identifier in the UI. |
 | `SCHEDULE` | `None` | Schedule (e.g. `None`, `"@daily"`, `"0 0 * * *"`). |
-| `default_args["owner"]` | `"your_name"` | Owner of the DAG. |
+| `default_args["owner"]` | `"Akshata"` | Owner of the DAG. |
 | `default_args["retries"]` | `1` | Number of retries on failure. |
 | `default_args["retry_delay"]` | `2 minutes` | Delay before retry. |
 | `default_args["execution_timeout"]` | `15 minutes` | Max runtime per task. |
