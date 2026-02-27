@@ -1,14 +1,26 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10
+# Use a slimmer Python runtime as a parent image
+FROM python:3.10-slim
+
+LABEL description="Docker Lab 1 - Wine classifier training with metrics" \
+      maintainer="aksha"
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the model training script into the container
+# Copy only requirements first for better build caching
+COPY src/requirements.txt .
+
+# Install dependencies without caching to reduce image size
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Now copy the rest of the application code
 COPY src/ .
 
-# Install Scikit-Learn and joblib
-RUN pip install -r requirements.txt
+# Create a non-root user
+RUN useradd -r -s /bin/false appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 # Run the script when the container launches
 CMD ["python", "main.py"]

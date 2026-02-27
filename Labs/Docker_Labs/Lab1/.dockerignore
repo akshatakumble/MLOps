@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter notebooks and checkpoints
+*.ipynb
+.ipynb_checkpoints/
+
+# Model artifacts and metrics (don’t bake previous runs into image)
+*.pkl
+*.joblib
+metrics.json
+
+# IDE / OS junk
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
