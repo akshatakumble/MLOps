@@ -1,4 +1,0 @@
-# Stage 1: Build and Train the Model
-FROM python:3.9
-
-RUN pip install tensorflow-data-validation
